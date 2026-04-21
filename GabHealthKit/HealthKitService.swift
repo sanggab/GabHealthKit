@@ -40,6 +40,20 @@ struct HealthKitStepCountModel: Sendable {
     let calories: Double
 }
 
+// 지정한 기간의 수면 요약 정보를 전달하는 모델입니다.
+struct HealthKitSleepSummaryModel: Sendable {
+    let startDate: Date
+    let endDate: Date
+    let inBedDuration: TimeInterval
+    let asleepDuration: TimeInterval
+    let awakeDuration: TimeInterval
+    let asleepCoreDuration: TimeInterval
+    let asleepDeepDuration: TimeInterval
+    let asleepREMDuration: TimeInterval
+    let asleepUnspecifiedDuration: TimeInterval
+    let sampleCount: Int
+}
+
 enum HealthKitServiceError: Error {
     case invalidDateRange
     case unsupportedType(HealthKitModel)
@@ -49,6 +63,29 @@ final class HealthKitService {
     static let shared = HealthKitService()
     
     private let healthStore = HKHealthStore()
+
+    var isHealthDataAvailable: Bool {
+        HKHealthStore.isHealthDataAvailable()
+    }
+
+    func authorizationRequestStatus(
+        write toShare: Set<HealthKitModel> = [],
+        read: Set<HealthKitModel>
+    ) async throws -> HKAuthorizationRequestStatus {
+        let shareTypes = Set(toShare.compactMap(\.sampleType))
+        let readTypes = Set(read.compactMap(\.objectType))
+
+        return try await withCheckedThrowingContinuation { continuation in
+            healthStore.getRequestStatusForAuthorization(toShare: shareTypes, read: readTypes) { status, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+
+                continuation.resume(returning: status)
+            }
+        }
+    }
     
     // 읽기 / 쓰기 권한 요청
     func requestAuthroization(
@@ -167,6 +204,95 @@ final class HealthKitService {
             healthStore.execute(query)
         }
     }
+
+    // 수면 샘플을 UI에서 바로 쓸 수 있는 요약 정보로 정리합니다.
+    func fetchSleepSummary(from startDate: Date, to endDate: Date) async throws -> HealthKitSleepSummaryModel {
+        let samples = try await fetchSleepAnalysis(from: startDate, to: endDate)
+
+        let trimmedIntervals = samples.compactMap { sample -> SleepInterval? in
+            let clippedStart = max(sample.startDate, startDate)
+            let clippedEnd = min(sample.endDate, endDate)
+
+            guard clippedStart < clippedEnd else {
+                return nil
+            }
+
+            return SleepInterval(startDate: clippedStart, endDate: clippedEnd, value: sample.value)
+        }
+
+        let inBedDuration = mergedDuration(for: [HKCategoryValueSleepAnalysis.inBed.rawValue], in: trimmedIntervals)
+        let awakeDuration = mergedDuration(for: [HKCategoryValueSleepAnalysis.awake.rawValue], in: trimmedIntervals)
+        let asleepCoreDuration = mergedDuration(for: [HKCategoryValueSleepAnalysis.asleepCore.rawValue], in: trimmedIntervals)
+        let asleepDeepDuration = mergedDuration(for: [HKCategoryValueSleepAnalysis.asleepDeep.rawValue], in: trimmedIntervals)
+        let asleepREMDuration = mergedDuration(for: [HKCategoryValueSleepAnalysis.asleepREM.rawValue], in: trimmedIntervals)
+        let asleepUnspecifiedDuration = mergedDuration(
+            for: [
+                HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue
+            ],
+            in: trimmedIntervals
+        )
+        let asleepDuration = mergedDuration(
+            for: [
+                HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
+                HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+                HKCategoryValueSleepAnalysis.asleepREM.rawValue
+            ],
+            in: trimmedIntervals
+        )
+
+        return HealthKitSleepSummaryModel(
+            startDate: startDate,
+            endDate: endDate,
+            inBedDuration: inBedDuration,
+            asleepDuration: asleepDuration,
+            awakeDuration: awakeDuration,
+            asleepCoreDuration: asleepCoreDuration,
+            asleepDeepDuration: asleepDeepDuration,
+            asleepREMDuration: asleepREMDuration,
+            asleepUnspecifiedDuration: asleepUnspecifiedDuration,
+            sampleCount: samples.count
+        )
+    }
+
+    private func mergedDuration(for values: [Int], in intervals: [SleepInterval]) -> TimeInterval {
+        let matchingIntervals = intervals
+            .filter { values.contains($0.value) }
+            .sorted { lhs, rhs in
+                if lhs.startDate == rhs.startDate {
+                    return lhs.endDate < rhs.endDate
+                }
+
+                return lhs.startDate < rhs.startDate
+            }
+
+        guard let firstInterval = matchingIntervals.first else {
+            return 0
+        }
+
+        var total: TimeInterval = 0
+        var currentStart = firstInterval.startDate
+        var currentEnd = firstInterval.endDate
+
+        for interval in matchingIntervals.dropFirst() {
+            if interval.startDate <= currentEnd {
+                currentEnd = max(currentEnd, interval.endDate)
+            } else {
+                total += currentEnd.timeIntervalSince(currentStart)
+                currentStart = interval.startDate
+                currentEnd = interval.endDate
+            }
+        }
+
+        total += currentEnd.timeIntervalSince(currentStart)
+        return total
+    }
+}
+
+private struct SleepInterval {
+    let startDate: Date
+    let endDate: Date
+    let value: Int
 }
 
 //// 걸음 수(stepCount)를 읽고 쓰기 위한 HealthKit 타입입니다.

@@ -398,8 +398,8 @@
 				DEVELOPMENT_TEAM = JA868URLCA;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "걸음 수 데이터를 읽기 위해 건강 데이터 접근 권한이 필요합니다.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "걸음 수 데이터를 기록하기 위해 건강 데이터 접근 권한이 필요합니다.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "걸음 수, 활동 칼로리, 수면 데이터를 읽기 위해 건강 데이터 접근 권한이 필요합니다.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "건강 데이터 연동 기능을 위해 건강 데이터 접근 권한이 필요합니다.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -438,8 +438,8 @@
 				DEVELOPMENT_TEAM = JA868URLCA;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "걸음 수 데이터를 읽기 위해 건강 데이터 접근 권한이 필요합니다.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "걸음 수 데이터를 기록하기 위해 건강 데이터 접근 권한이 필요합니다.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "걸음 수, 활동 칼로리, 수면 데이터를 읽기 위해 건강 데이터 접근 권한이 필요합니다.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "건강 데이터 연동 기능을 위해 건강 데이터 접근 권한이 필요합니다.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
