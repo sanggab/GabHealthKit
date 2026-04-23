@@ -45,8 +45,12 @@ struct SleepDialogView: View {
     // 다이얼을 따라 배치할 시간 목록입니다.
     let times: [ClockHour] = ClockHour.allCases
 
-    // 각 시간 눈금 사이를 4등분해 중간에 3개의 분금을 배치합니다.
-    private let minorTickOffsets = [0.25, 0.5, 0.75]
+    // 2시간 단위의 시간 눈금 사이를 15분 단위로 나눈 전체 칸 수입니다.
+    // 시간 눈금 12개 * 각 시간 눈금 사이 4칸 = 48칸입니다.
+    private let totalTickSlots = 48
+
+    // 4칸마다 시간 눈금이 오고, 그 사이 3칸은 분금으로 사용합니다.
+    private let majorTickSlotInterval = 4
 
     // 좌우 여백입니다. 다이얼 지름은 이 값을 제외한 실제 가용 폭 기준으로 계산합니다.
     private let horizontalPadding: CGFloat = 30
@@ -81,16 +85,18 @@ struct SleepDialogView: View {
                     // 원형 다이얼 배경입니다.
                     Circle()
                         .fill(.blue)
-                    
-                    ForEach(times.indices, id: \.self) { index in
-                        // 인접한 시간 눈금 사이에 3개의 분금을 먼저 배치합니다.
-                        ForEach(minorTickOffsets, id: \.self) { offset in
+
+                    ForEach(0..<totalTickSlots, id: \.self) { index in
+                        // 시간 눈금이 그려지는 자리는 분금을 중복으로 그리지 않습니다.
+                        if index % majorTickSlotInterval != 0 {
                             dialMinorTick(
-                                angle: Double(index) * 30 + (30 * offset),
+                                angle: Double(index) * (360 / Double(totalTickSlots)),
                                 size: dialSize
                             )
                         }
-
+                    }
+                    
+                    ForEach(times.indices, id: \.self) { index in
                         // 12개 시간 데이터를 30도 간격으로 시계 둘레에 배치합니다.
                         let time = times[index]
 
@@ -110,8 +116,15 @@ struct SleepDialogView: View {
                     .strokeBorder(Color.black.opacity(1), lineWidth: dialStrokeWidth)
                     .frame(width: dialSize, height: dialSize)
                 
-//                Circle()
-//                    .stroke(Color.mint, lineWidth: 30)
+                Circle()
+                    .inset(by: 5)
+                    .strokeBorder(Color.mint, style: StrokeStyle(lineWidth: 30, lineCap: .round, lineJoin: .round))
+                
+                AsyncImage(url: URL(string: "https://blog.treasurer.co.kr/assets/img/treasurer/rolex/rolex_12.png")) { result in
+                    result.image?
+                        .resizable()
+                }
+                .frame(width: 100, height: 100)
                 
             }
             // GeometryReader가 제공한 전체 영역을 모두 사용합니다.
