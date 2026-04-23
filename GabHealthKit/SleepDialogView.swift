@@ -63,6 +63,10 @@ struct SleepDialogView: View {
     // 드래그로 시간이 바뀔 때 5분 단위로만 갱신되도록 스냅합니다.
     private let minuteSnapInterval = 5
 
+    // 취침/기상 핸들이 서로 너무 가까워지면 최소 1시간 구간을 유지합니다.
+    // 이 값 이하로 좁혀지는 순간부터는 두 핸들이 한 몸처럼 같이 움직입니다.
+    private let minimumSleepDurationMinutes = 60
+
     // 좌우 여백입니다. 다이얼 지름은 이 값을 제외한 실제 가용 폭 기준으로 계산합니다.
     private let horizontalPadding: CGFloat = 30
 
@@ -231,7 +235,7 @@ struct SleepDialogView: View {
                 progress: startProgress,
                 size: size
             ) { location in
-                bedtimeMinutes = snappedMinutes(from: location, in: size)
+                updateBedtime(to: snappedMinutes(from: location, in: size))
             }
 
             // 끝 핸들입니다.
@@ -241,7 +245,7 @@ struct SleepDialogView: View {
                 progress: endProgress,
                 size: size
             ) { location in
-                wakeUpMinutes = snappedMinutes(from: location, in: size)
+                updateWakeUp(to: snappedMinutes(from: location, in: size))
             }
         }
         // DragGesture의 location을 이 다이얼 프레임 기준 좌표로 받기 위한 이름 있는 좌표계입니다.
@@ -436,6 +440,58 @@ struct SleepDialogView: View {
         return snappedMinutes % minutesPerDay
     }
 
+    private func updateBedtime(to proposedBedtimeMinutes: Int) {
+        // moon 핸들을 움직였을 때, 기존 기상 시간과의 차이를 계산합니다.
+        // 차이가 1시간보다 크면 취침 시간만 이동합니다.
+        let proposedDuration = sleepDuration(
+            from: proposedBedtimeMinutes,
+            to: wakeUpMinutes
+        )
+
+        if proposedDuration > minimumSleepDurationMinutes {
+            // 1시간보다 벌어지는 방향으로 드래그하면 다시 각자의 핸들처럼 독립 이동합니다.
+            bedtimeMinutes = proposedBedtimeMinutes
+        } else {
+            // 1시간 이하로 좁혀지는 순간부터는 두 핸들이 한 몸처럼 움직입니다.
+            // 사용자가 잡고 있는 moon 핸들은 그대로 따라가고,
+            // alarm 핸들은 정확히 1시간 뒤로 같이 밀립니다.
+            bedtimeMinutes = proposedBedtimeMinutes
+            wakeUpMinutes = normalizedMinutes(proposedBedtimeMinutes + minimumSleepDurationMinutes)
+        }
+    }
+
+    private func updateWakeUp(to proposedWakeUpMinutes: Int) {
+        // alarm 핸들을 움직였을 때, 기존 취침 시간과의 차이를 계산합니다.
+        // 차이가 1시간보다 크면 기상 시간만 이동합니다.
+        let proposedDuration = sleepDuration(
+            from: bedtimeMinutes,
+            to: proposedWakeUpMinutes
+        )
+
+        if proposedDuration > minimumSleepDurationMinutes {
+            // 1시간보다 벌어지는 방향으로 드래그하면 다시 각자의 핸들처럼 독립 이동합니다.
+            wakeUpMinutes = proposedWakeUpMinutes
+        } else {
+            // 1시간 이하로 좁혀지는 순간부터는 두 핸들이 한 몸처럼 움직입니다.
+            // 사용자가 잡고 있는 alarm 핸들은 그대로 따라가고,
+            // moon 핸들은 정확히 1시간 전으로 같이 당겨집니다.
+            wakeUpMinutes = proposedWakeUpMinutes
+            bedtimeMinutes = normalizedMinutes(proposedWakeUpMinutes - minimumSleepDurationMinutes)
+        }
+    }
+
+    private func sleepDuration(from startMinutes: Int, to endMinutes: Int) -> Int {
+        // 24시간 원형 다이얼이므로 end가 start보다 작으면 다음 날 시간으로 봅니다.
+        // 예: 23:00 -> 07:00 = (420 - 1380 + 1440) % 1440 = 480분입니다.
+        (endMinutes - startMinutes + minutesPerDay) % minutesPerDay
+    }
+
+    private func normalizedMinutes(_ minutes: Int) -> Int {
+        // 음수나 24시간을 넘어간 값을 항상 0~1439 범위로 되돌립니다.
+        // Swift의 %는 음수 결과가 나올 수 있어 minutesPerDay를 한 번 더 더합니다.
+        (minutes % minutesPerDay + minutesPerDay) % minutesPerDay
+    }
+
     private func sleepRangePoint(progress: Double, size: CGFloat) -> CGPoint {
         // sleepRangeArcSegment와 같은 원 path 위에 핸들을 올려야
         // 실제 보이는 라운드 캡 위치와 드래그 가능한 위치가 일치합니다.
@@ -458,7 +514,7 @@ struct SleepDialogView: View {
     private var totalSleepDurationText: String {
         // 기상 시간이 취침 시간보다 작으면 다음 날 기상으로 봅니다.
         // 예: 23:00 -> 07:00은 (07:00 + 24시간 - 23:00) = 8시간입니다.
-        let durationMinutes = (wakeUpMinutes - bedtimeMinutes + minutesPerDay) % minutesPerDay
+        let durationMinutes = sleepDuration(from: bedtimeMinutes, to: wakeUpMinutes)
         let hours = durationMinutes / 60
         let minutes = durationMinutes % 60
 
