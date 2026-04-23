@@ -42,12 +42,10 @@ enum ClockHour: Int, CaseIterable {
 }
 
 struct SleepDialogView: View {
-    // 선택된 수면 구간의 시작/끝 위치입니다.
-    // 0.0은 12시 방향, 0.25는 3시 방향, 0.5는 6시 방향을 의미합니다.
-    // SwiftUI trim(from:to:)이 0~1 사이 값을 사용하기 때문에
-    // 시간을 각도 대신 progress 값으로 보관합니다.
-    @State private var sleepRangeStartProgress = 0.0
-    @State private var sleepRangeEndProgress = 0.25
+    // 선택된 수면 구간의 시작/끝 시간입니다.
+    // 하루를 0~1439분으로 보고, 0은 오전 12:00, 1380은 오후 11:00을 의미합니다.
+    @State private var bedtimeMinutes = 23 * 60
+    @State private var wakeUpMinutes = 7 * 60
 
     // 다이얼을 따라 배치할 시간 목록입니다.
     let times: [ClockHour] = ClockHour.allCases
@@ -58,6 +56,12 @@ struct SleepDialogView: View {
 
     // 4칸마다 시간 눈금이 오고, 그 사이 3칸은 분금으로 사용합니다.
     private let majorTickSlotInterval = 4
+
+    // 24시간 다이얼이므로 하루 전체 분 수를 기준으로 progress와 시간을 서로 변환합니다.
+    private let minutesPerDay = 24 * 60
+
+    // 드래그로 시간이 바뀔 때 5분 단위로만 갱신되도록 스냅합니다.
+    private let minuteSnapInterval = 5
 
     // 좌우 여백입니다. 다이얼 지름은 이 값을 제외한 실제 가용 폭 기준으로 계산합니다.
     private let horizontalPadding: CGFloat = 30
@@ -144,6 +148,11 @@ struct SleepDialogView: View {
                         .resizable()
                 }
                 .frame(width: 100, height: 100)
+
+                sleepSummaryPanel
+                    .padding(.top, 50)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .allowsHitTesting(false)
                 
             }
             // GeometryReader가 제공한 전체 영역을 모두 사용합니다.
@@ -154,23 +163,61 @@ struct SleepDialogView: View {
         }
     }
 
+    private var sleepSummaryPanel: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 24) {
+                sleepTimeSummary(
+                    systemName: "moon.stars.fill",
+                    title: "취침 시간",
+                    time: timeText(for: bedtimeMinutes)
+                )
+
+                sleepTimeSummary(
+                    systemName: "alarm.fill",
+                    title: "기상 시간",
+                    time: timeText(for: wakeUpMinutes)
+                )
+            }
+
+            Text(totalSleepDurationText)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+        }
+    }
+
+    private func sleepTimeSummary(systemName: String, title: String, time: String) -> some View {
+        VStack(spacing: 4) {
+            Label(title, systemImage: systemName)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.75))
+
+            Text(time)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+        }
+    }
+
     @ViewBuilder
     private func sleepRangeArc(size: CGFloat) -> some View {
+        let startProgress = progress(for: bedtimeMinutes)
+        let endProgress = progress(for: wakeUpMinutes)
+
         ZStack {
             // 선택 구간이 12시를 지나지 않는 일반적인 경우입니다.
             // 예: 시작 12시(0.0), 끝 3시(0.25)라면 trim(0.0...0.25) 한 번으로 그릴 수 있습니다.
-            if sleepRangeStartProgress <= sleepRangeEndProgress {
+            if startProgress <= endProgress {
                 sleepRangeArcSegment(
-                    from: sleepRangeStartProgress,
-                    to: sleepRangeEndProgress
+                    from: startProgress,
+                    to: endProgress
                 )
             } else {
                 // 선택 구간이 12시를 지나 이어지는 경우 trim을 두 조각으로 나누어 그립니다.
                 // 예: 시작 10시 방향(0.85), 끝 2시 방향(0.15)처럼 원의 끝과 시작을 넘나드는 경우입니다.
                 // trim은 from 값이 to 값보다 큰 구간을 한 번에 그릴 수 없어서
                 // 0.85...1.0, 0.0...0.15 두 구간으로 나누어 같은 선택 영역처럼 보이게 합니다.
-                sleepRangeArcSegment(from: sleepRangeStartProgress, to: 1)
-                sleepRangeArcSegment(from: 0, to: sleepRangeEndProgress)
+                sleepRangeArcSegment(from: startProgress, to: 1)
+                sleepRangeArcSegment(from: 0, to: endProgress)
             }
         }
         // sleepRangeArc 내부의 모든 좌표 계산은 이 정사각형 프레임을 기준으로 합니다.
@@ -181,20 +228,20 @@ struct SleepDialogView: View {
             // 사용자가 선택 영역 아무 곳이나 눌렀을 때 값이 바뀌는 문제를 막을 수 있습니다.
             sleepRangeHandle(
                 systemName: "moon.stars.fill",
-                progress: sleepRangeStartProgress,
+                progress: startProgress,
                 size: size
             ) { location in
-                sleepRangeStartProgress = progress(from: location, in: size)
+                bedtimeMinutes = snappedMinutes(from: location, in: size)
             }
 
             // 끝 핸들입니다.
             // 시작 핸들과 같은 계산을 쓰지만 갱신하는 상태값만 endProgress로 다릅니다.
             sleepRangeHandle(
                 systemName: "alarm.fill",
-                progress: sleepRangeEndProgress,
+                progress: endProgress,
                 size: size
             ) { location in
-                sleepRangeEndProgress = progress(from: location, in: size)
+                wakeUpMinutes = snappedMinutes(from: location, in: size)
             }
         }
         // DragGesture의 location을 이 다이얼 프레임 기준 좌표로 받기 위한 이름 있는 좌표계입니다.
@@ -371,6 +418,24 @@ struct SleepDialogView: View {
         return min(max(degrees / 360, 0), 1)
     }
 
+    private func progress(for minutes: Int) -> Double {
+        // 24시간을 한 바퀴로 쓰기 때문에 현재 분을 하루 전체 분 수로 나누면
+        // trim과 핸들 좌표 계산에 바로 사용할 수 있는 0~1 progress가 됩니다.
+        Double(minutes) / Double(minutesPerDay)
+    }
+
+    private func snappedMinutes(from location: CGPoint, in size: CGFloat) -> Int {
+        // 드래그 좌표를 먼저 0~1 progress로 바꾸고, 다시 하루 기준 분으로 변환합니다.
+        let rawMinutes = Int((progress(from: location, in: size) * Double(minutesPerDay)).rounded())
+
+        // 사용자가 드래그하는 동안 시간이 너무 촘촘하게 변하지 않도록
+        // 가장 가까운 5분 단위로 반올림합니다.
+        let snappedMinutes = ((rawMinutes + (minuteSnapInterval / 2)) / minuteSnapInterval) * minuteSnapInterval
+
+        // 24:00 위치까지 올라간 값은 다시 0:00으로 순환시켜 24시간 다이얼을 유지합니다.
+        return snappedMinutes % minutesPerDay
+    }
+
     private func sleepRangePoint(progress: Double, size: CGFloat) -> CGPoint {
         // sleepRangeArcSegment와 같은 원 path 위에 핸들을 올려야
         // 실제 보이는 라운드 캡 위치와 드래그 가능한 위치가 일치합니다.
@@ -388,6 +453,25 @@ struct SleepDialogView: View {
             x: center + (CGFloat(Darwin.cos(radians)) * radius),
             y: center + (CGFloat(Darwin.sin(radians)) * radius)
         )
+    }
+
+    private var totalSleepDurationText: String {
+        // 기상 시간이 취침 시간보다 작으면 다음 날 기상으로 봅니다.
+        // 예: 23:00 -> 07:00은 (07:00 + 24시간 - 23:00) = 8시간입니다.
+        let durationMinutes = (wakeUpMinutes - bedtimeMinutes + minutesPerDay) % minutesPerDay
+        let hours = durationMinutes / 60
+        let minutes = durationMinutes % 60
+
+        return "\(hours)시간 \(minutes)분"
+    }
+
+    private func timeText(for minutes: Int) -> String {
+        let hour24 = minutes / 60
+        let minute = minutes % 60
+        let period = hour24 < 12 ? "오전" : "오후"
+        let hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12
+
+        return "\(period) \(hour12):\(String(format: "%02d", minute))"
     }
 
     private func measuredLabelSize(for text: String) -> CGSize {
