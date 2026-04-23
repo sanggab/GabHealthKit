@@ -316,19 +316,22 @@ struct SleepDialogView: View {
         // 시계 기준 12시를 시작점으로 사용하려면 -90도 보정이 필요합니다.
         // tick은 원 테두리 안쪽에서부터 inset만큼 떨어진 위치에 오도록 계산합니다.
         let radius = (size / 2) - dialStrokeWidth - inset - (tickHeight / 2)
-        let radians = Angle.degrees(angle - 90).radians
+        let radians = Double(Angle.degrees(angle - 90).radians)
         let center = size / 2
 
         // 원의 중심점에서 cos/sin을 이용해 현재 각도의 x, y 좌표를 계산합니다.
         return CGPoint(
-            x: center + cos(radians) * radius,
-            y: center + sin(radians) * radius
+            x: center + (CGFloat(Darwin.cos(radians)) * radius),
+            y: center + (CGFloat(Darwin.sin(radians)) * radius)
         )
     }
 
     private func labelPoint(angle: Double, text: String, tickPoint: CGPoint) -> CGPoint {
-        let radians = Angle.degrees(angle - 90).radians
-        let outwardVector = CGVector(dx: cos(radians), dy: sin(radians))
+        let radians = Double(Angle.degrees(angle - 90).radians)
+        let outwardVector = CGVector(
+            dx: CGFloat(Darwin.cos(radians)),
+            dy: CGFloat(Darwin.sin(radians))
+        )
         let labelSize = measuredLabelSize(for: text)
 
         // 텍스트는 회전하지 않으므로, 현재 각도에서 라벨의 가로/세로 절반 크기가
@@ -377,13 +380,13 @@ struct SleepDialogView: View {
 
         // progress는 0~1 값이므로 360도를 곱해 각도로 바꿉니다.
         // -90도 보정은 0 progress가 3시가 아니라 12시 방향에 오게 하기 위함입니다.
-        let radians = (progress * 360 - 90) * .pi / 180
+        let radians = (progress * 360 - 90) * Double.pi / 180
         let center = size / 2
 
         // 원 중심에서 해당 각도의 반지름만큼 이동한 실제 핸들 좌표입니다.
         return CGPoint(
-            x: center + cos(radians) * radius,
-            y: center + sin(radians) * radius
+            x: center + (CGFloat(Darwin.cos(radians)) * radius),
+            y: center + (CGFloat(Darwin.sin(radians)) * radius)
         )
     }
 
