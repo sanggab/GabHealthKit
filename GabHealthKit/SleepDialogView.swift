@@ -45,6 +45,9 @@ struct SleepDialogView: View {
     // 다이얼을 따라 배치할 시간 목록입니다.
     let times: [ClockHour] = ClockHour.allCases
 
+    // 각 시간 눈금 사이를 4등분해 중간에 3개의 분금을 배치합니다.
+    private let minorTickOffsets = [0.25, 0.5, 0.75]
+
     // 좌우 여백입니다. 다이얼 지름은 이 값을 제외한 실제 가용 폭 기준으로 계산합니다.
     private let horizontalPadding: CGFloat = 30
 
@@ -56,6 +59,9 @@ struct SleepDialogView: View {
 
     // 눈금 선의 길이입니다.
     private let dialTickHeight: CGFloat = 15
+
+    // 분금은 시간 눈금보다 짧게 그려 시각적 위계를 만듭니다.
+    private let dialMinorTickHeight: CGFloat = 8
 
     // 다이얼 바깥 경계에서 눈금이 얼마나 안쪽에 들어올지 결정합니다.
     private let dialTickInset: CGFloat = 5
@@ -77,6 +83,14 @@ struct SleepDialogView: View {
                         .fill(.blue)
                     
                     ForEach(times.indices, id: \.self) { index in
+                        // 인접한 시간 눈금 사이에 3개의 분금을 먼저 배치합니다.
+                        ForEach(minorTickOffsets, id: \.self) { offset in
+                            dialMinorTick(
+                                angle: Double(index) * 30 + (30 * offset),
+                                size: dialSize
+                            )
+                        }
+
                         // 12개 시간 데이터를 30도 간격으로 시계 둘레에 배치합니다.
                         let time = times[index]
 
@@ -93,8 +107,11 @@ struct SleepDialogView: View {
                 
                 // 원 테두리 역시 같은 지름 기준으로 그려 padding 변화와 분리되지 않게 합니다.
                 Circle()
-                    .strokeBorder(Color.black.opacity(0.6), lineWidth: dialStrokeWidth)
+                    .strokeBorder(Color.black.opacity(1), lineWidth: dialStrokeWidth)
                     .frame(width: dialSize, height: dialSize)
+                
+//                Circle()
+//                    .stroke(Color.mint, lineWidth: 30)
                 
             }
             // GeometryReader가 제공한 전체 영역을 모두 사용합니다.
@@ -109,7 +126,12 @@ struct SleepDialogView: View {
     private func dialTickLabel(text: String, angle: Double, size: CGFloat) -> some View {
         // 같은 각도에 있는 눈금 좌표와 라벨 좌표를 각각 계산합니다.
         // 라벨 좌표는 눈금 위치에서 안쪽 방향으로 텍스트 크기만큼 밀어 계산합니다.
-        let tickPoint = point(on: size, angle: angle, inset: dialTickInset)
+        let tickPoint = tickPoint(
+            on: size,
+            angle: angle,
+            inset: dialTickInset,
+            tickHeight: dialTickHeight
+        )
         let labelPoint = labelPoint(angle: angle, text: text, tickPoint: tickPoint)
 
         ZStack {
@@ -133,11 +155,27 @@ struct SleepDialogView: View {
         .frame(width: size, height: size)
     }
 
-    private func point(on size: CGFloat, angle: Double, inset: CGFloat) -> CGPoint {
+    @ViewBuilder
+    private func dialMinorTick(angle: Double, size: CGFloat) -> some View {
+        let tickPoint = tickPoint(
+            on: size,
+            angle: angle,
+            inset: dialTickInset,
+            tickHeight: dialMinorTickHeight
+        )
+
+        Rectangle()
+            .fill(.white.opacity(0.9))
+            .frame(width: dialTickWidth, height: dialMinorTickHeight)
+            .rotationEffect(.degrees(angle))
+            .position(x: tickPoint.x, y: tickPoint.y)
+    }
+
+    private func tickPoint(on size: CGFloat, angle: Double, inset: CGFloat, tickHeight: CGFloat) -> CGPoint {
         // Swift 삼각함수 기준 0도는 3시 방향이므로,
         // 시계 기준 12시를 시작점으로 사용하려면 -90도 보정이 필요합니다.
         // tick은 원 테두리 안쪽에서부터 inset만큼 떨어진 위치에 오도록 계산합니다.
-        let radius = (size / 2) - dialStrokeWidth - inset - (dialTickHeight / 2)
+        let radius = (size / 2) - dialStrokeWidth - inset - (tickHeight / 2)
         let radians = Angle.degrees(angle - 90).radians
         let center = size / 2
 
