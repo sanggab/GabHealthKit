@@ -72,7 +72,7 @@ struct SleepDialogView: View {
     private let maximumSleepDurationMinutes = 20 * 60
 
     // 좌우 여백입니다. 다이얼 지름은 이 값을 제외한 실제 가용 폭 기준으로 계산합니다.
-    private let horizontalPadding: CGFloat = 30
+    private let horizontalPadding: CGFloat = 0
 
     // 다이얼 테두리 두께입니다. -> 시계 눈금의 위치에 영향을 미칩니다.
     private let dialStrokeWidth: CGFloat = 40
