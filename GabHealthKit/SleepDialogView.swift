@@ -77,7 +77,7 @@ struct SleepDialogView: View {
     private let sleepRangeHandleHitSize: CGFloat = 44
 
     // 시작/끝 핸들에 표시할 SF Symbols 아이콘 크기입니다.
-    private let sleepRangeHandleIconSize: CGFloat = 18
+    private let sleepRangeHandleIconSize: CGFloat = 20
 
     // 눈금 선의 두께입니다.
     private let dialTickWidth: CGFloat = 3
@@ -243,7 +243,7 @@ struct SleepDialogView: View {
                 .fill(Color.mint.opacity(0.001))
 
             Image(systemName: systemName)
-                .frame(width: 20, height: 20)
+                .frame(width: size, height: size)
                 .allowsHitTesting(false)
         }
         // 실제 보이는 캡은 stroke의 lineCap이지만, 손가락 터치를 위해 더 큰 원을 사용합니다.
