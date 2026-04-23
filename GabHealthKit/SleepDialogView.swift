@@ -48,7 +48,7 @@ struct SleepDialogView: View {
     // 좌우 여백입니다. 다이얼 지름은 이 값을 제외한 실제 가용 폭 기준으로 계산합니다.
     private let horizontalPadding: CGFloat = 30
 
-    // 다이얼 테두리 두께입니다.
+    // 다이얼 테두리 두께입니다. -> 시계 눈금의 위치에 영향을 미칩니다.
     private let dialStrokeWidth: CGFloat = 40
 
     // 눈금 선의 두께입니다.
@@ -58,7 +58,7 @@ struct SleepDialogView: View {
     private let dialTickHeight: CGFloat = 15
 
     // 다이얼 바깥 경계에서 눈금이 얼마나 안쪽에 들어올지 결정합니다.
-    private let dialTickInset: CGFloat = 10
+    private let dialTickInset: CGFloat = 5
 
     // 눈금과 라벨 사이의 최소 간격입니다.
     private let dialSideLabelGap: CGFloat = 10
@@ -93,12 +93,13 @@ struct SleepDialogView: View {
                 
                 // 원 테두리 역시 같은 지름 기준으로 그려 padding 변화와 분리되지 않게 합니다.
                 Circle()
-                    .stroke(Color.black.opacity(1), lineWidth: dialStrokeWidth)
+                    .strokeBorder(Color.black.opacity(0.6), lineWidth: dialStrokeWidth)
                     .frame(width: dialSize, height: dialSize)
                 
             }
             // GeometryReader가 제공한 전체 영역을 모두 사용합니다.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.orange)
             .padding(.horizontal, horizontalPadding)
             .background(.black.opacity(0.9))
         }
