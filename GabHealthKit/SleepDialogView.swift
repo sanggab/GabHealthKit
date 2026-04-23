@@ -76,6 +76,9 @@ struct SleepDialogView: View {
     // 이 값이 작으면 사용자가 정확히 캡을 눌러야 해서 드래그가 불편해집니다.
     private let sleepRangeHandleHitSize: CGFloat = 44
 
+    // 시작/끝 핸들에 표시할 SF Symbols 아이콘 크기입니다.
+    private let sleepRangeHandleIconSize: CGFloat = 18
+
     // 눈금 선의 두께입니다.
     private let dialTickWidth: CGFloat = 3
 
@@ -176,13 +179,21 @@ struct SleepDialogView: View {
             // 시작 핸들입니다.
             // 전체 아크에 gesture를 붙이지 않고 이 핸들에만 gesture를 붙여야
             // 사용자가 선택 영역 아무 곳이나 눌렀을 때 값이 바뀌는 문제를 막을 수 있습니다.
-            sleepRangeHandle(progress: sleepRangeStartProgress, size: size) { location in
+            sleepRangeHandle(
+                systemName: "moon.stars.fill",
+                progress: sleepRangeStartProgress,
+                size: size
+            ) { location in
                 sleepRangeStartProgress = progress(from: location, in: size)
             }
 
             // 끝 핸들입니다.
             // 시작 핸들과 같은 계산을 쓰지만 갱신하는 상태값만 endProgress로 다릅니다.
-            sleepRangeHandle(progress: sleepRangeEndProgress, size: size) { location in
+            sleepRangeHandle(
+                systemName: "alarm.fill",
+                progress: sleepRangeEndProgress,
+                size: size
+            ) { location in
                 sleepRangeEndProgress = progress(from: location, in: size)
             }
         }
@@ -215,6 +226,7 @@ struct SleepDialogView: View {
     }
 
     private func sleepRangeHandle(
+        systemName: String,
         progress: Double,
         size: CGFloat,
         onDrag: @escaping (CGPoint) -> Void
@@ -223,13 +235,19 @@ struct SleepDialogView: View {
         // 이 좌표에 투명한 터치 영역을 올려 사용자가 시작/끝만 드래그하게 만듭니다.
         let point = sleepRangePoint(progress: progress, size: size)
 
-        return Circle()
-            // 투명에 가까운 색을 넣어 실제 UI는 해치지 않으면서 터치 영역만 확보합니다.
-            // Color.clear만 쓰면 상황에 따라 hit testing이 기대처럼 동작하지 않을 수 있어
-            // 거의 보이지 않는 opacity를 가진 색으로 터치 가능한 Shape를 만듭니다.
-            .fill(Color.mint.opacity(0.001))
-            // 실제 보이는 캡은 stroke의 lineCap이지만, 손가락 터치를 위해 더 큰 원을 사용합니다.
-            .frame(width: sleepRangeHandleHitSize, height: sleepRangeHandleHitSize)
+        return ZStack {
+            Circle()
+                // 투명에 가까운 색을 넣어 실제 UI는 해치지 않으면서 터치 영역만 확보합니다.
+                // Color.clear만 쓰면 상황에 따라 hit testing이 기대처럼 동작하지 않을 수 있어
+                // 거의 보이지 않는 opacity를 가진 색으로 터치 가능한 Shape를 만듭니다.
+                .fill(Color.mint.opacity(0.001))
+
+            Image(systemName: systemName)
+                .frame(width: 20, height: 20)
+                .allowsHitTesting(false)
+        }
+        // 실제 보이는 캡은 stroke의 lineCap이지만, 손가락 터치를 위해 더 큰 원을 사용합니다.
+        .frame(width: sleepRangeHandleHitSize, height: sleepRangeHandleHitSize)
             // 프레임 전체 사각형이 아니라 원형 영역만 터치 영역으로 사용합니다.
             .contentShape(Circle())
             // 계산된 캡 좌표에 투명 핸들을 올립니다.
