@@ -42,6 +42,13 @@ enum ClockHour: Int, CaseIterable {
 }
 
 struct SleepDialogView: View {
+    // 선택된 수면 구간의 시작/끝 위치입니다.
+    // 0.0은 12시 방향, 0.25는 3시 방향, 0.5는 6시 방향을 의미합니다.
+    // SwiftUI trim(from:to:)이 0~1 사이 값을 사용하기 때문에
+    // 시간을 각도 대신 progress 값으로 보관합니다.
+    @State private var sleepRangeStartProgress = 0.0
+    @State private var sleepRangeEndProgress = 0.25
+
     // 다이얼을 따라 배치할 시간 목록입니다.
     let times: [ClockHour] = ClockHour.allCases
 
@@ -57,6 +64,17 @@ struct SleepDialogView: View {
 
     // 다이얼 테두리 두께입니다. -> 시계 눈금의 위치에 영향을 미칩니다.
     private let dialStrokeWidth: CGFloat = 40
+
+    // 드래그로 늘어나는 선택 링의 두께입니다.
+    private let sleepRangeStrokeWidth: CGFloat = 30
+
+    // 선택 링이 검은 테두리 안에서 위아래로 남길 여백입니다.
+    private let sleepRangeStrokeGap: CGFloat = 5
+
+    // 시작/끝 핸들의 터치 영역입니다.
+    // 실제로 보이는 원형 캡보다 크게 잡아 손가락으로 잡기 쉽게 합니다.
+    // 이 값이 작으면 사용자가 정확히 캡을 눌러야 해서 드래그가 불편해집니다.
+    private let sleepRangeHandleHitSize: CGFloat = 44
 
     // 눈금 선의 두께입니다.
     private let dialTickWidth: CGFloat = 3
@@ -115,10 +133,8 @@ struct SleepDialogView: View {
                 Circle()
                     .strokeBorder(Color.black.opacity(1), lineWidth: dialStrokeWidth)
                     .frame(width: dialSize, height: dialSize)
-                
-                Circle()
-                    .inset(by: 5)
-                    .strokeBorder(Color.mint, style: StrokeStyle(lineWidth: 30, lineCap: .round, lineJoin: .round))
+
+                sleepRangeArc(size: dialSize)
                 
                 AsyncImage(url: URL(string: "https://blog.treasurer.co.kr/assets/img/treasurer/rolex/rolex_12.png")) { result in
                     result.image?
@@ -133,6 +149,99 @@ struct SleepDialogView: View {
             .padding(.horizontal, horizontalPadding)
             .background(.black.opacity(0.9))
         }
+    }
+
+    @ViewBuilder
+    private func sleepRangeArc(size: CGFloat) -> some View {
+        ZStack {
+            // 선택 구간이 12시를 지나지 않는 일반적인 경우입니다.
+            // 예: 시작 12시(0.0), 끝 3시(0.25)라면 trim(0.0...0.25) 한 번으로 그릴 수 있습니다.
+            if sleepRangeStartProgress <= sleepRangeEndProgress {
+                sleepRangeArcSegment(
+                    from: sleepRangeStartProgress,
+                    to: sleepRangeEndProgress
+                )
+            } else {
+                // 선택 구간이 12시를 지나 이어지는 경우 trim을 두 조각으로 나누어 그립니다.
+                // 예: 시작 10시 방향(0.85), 끝 2시 방향(0.15)처럼 원의 끝과 시작을 넘나드는 경우입니다.
+                // trim은 from 값이 to 값보다 큰 구간을 한 번에 그릴 수 없어서
+                // 0.85...1.0, 0.0...0.15 두 구간으로 나누어 같은 선택 영역처럼 보이게 합니다.
+                sleepRangeArcSegment(from: sleepRangeStartProgress, to: 1)
+                sleepRangeArcSegment(from: 0, to: sleepRangeEndProgress)
+            }
+        }
+        // sleepRangeArc 내부의 모든 좌표 계산은 이 정사각형 프레임을 기준으로 합니다.
+        .frame(width: size, height: size)
+        .overlay {
+            // 시작 핸들입니다.
+            // 전체 아크에 gesture를 붙이지 않고 이 핸들에만 gesture를 붙여야
+            // 사용자가 선택 영역 아무 곳이나 눌렀을 때 값이 바뀌는 문제를 막을 수 있습니다.
+            sleepRangeHandle(progress: sleepRangeStartProgress, size: size) { location in
+                sleepRangeStartProgress = progress(from: location, in: size)
+            }
+
+            // 끝 핸들입니다.
+            // 시작 핸들과 같은 계산을 쓰지만 갱신하는 상태값만 endProgress로 다릅니다.
+            sleepRangeHandle(progress: sleepRangeEndProgress, size: size) { location in
+                sleepRangeEndProgress = progress(from: location, in: size)
+            }
+        }
+        // DragGesture의 location을 이 다이얼 프레임 기준 좌표로 받기 위한 이름 있는 좌표계입니다.
+        // 이 좌표계가 없으면 부모 뷰 기준 좌표가 들어와 원 중심 계산이 어긋날 수 있습니다.
+        .coordinateSpace(name: "sleepRangeDial")
+    }
+
+    private func sleepRangeArcSegment(from start: Double, to end: Double) -> some View {
+        Circle()
+            // trim을 쓰려면 strokeBorder 대신 stroke를 사용해야 합니다.
+            // stroke는 선이 path 중심을 기준으로 그려지므로, 원하는 여백 + 선 반두께만큼 inset합니다.
+            // 예: gap 5, lineWidth 30이면 path 중심은 바깥쪽에서 20pt 안쪽에 있어야
+            // 실제 선의 바깥쪽 edge가 테두리보다 5pt 안쪽에 그려집니다.
+            .inset(by: sleepRangeStrokeGap + (sleepRangeStrokeWidth / 2))
+            // Circle 전체 둘레 중 start~end 비율만 남깁니다.
+            // start/end는 각도가 아니라 0~1 사이 progress입니다.
+            .trim(from: start, to: end)
+            .stroke(
+                Color.mint,
+                style: StrokeStyle(
+                    lineWidth: sleepRangeStrokeWidth,
+                    // 라운드 캡을 써야 iOS 수면 시간 선택 UI처럼 양 끝이 둥글게 보입니다.
+                    lineCap: .round,
+                    lineJoin: .round
+                )
+            )
+            // SwiftUI Circle trim의 시작점은 3시 방향이라, 시계처럼 12시부터 시작하도록 돌립니다.
+            .rotationEffect(.degrees(-90))
+    }
+
+    private func sleepRangeHandle(
+        progress: Double,
+        size: CGFloat,
+        onDrag: @escaping (CGPoint) -> Void
+    ) -> some View {
+        // 현재 progress 값이 실제 원 위 어느 좌표인지 계산합니다.
+        // 이 좌표에 투명한 터치 영역을 올려 사용자가 시작/끝만 드래그하게 만듭니다.
+        let point = sleepRangePoint(progress: progress, size: size)
+
+        return Circle()
+            // 투명에 가까운 색을 넣어 실제 UI는 해치지 않으면서 터치 영역만 확보합니다.
+            // Color.clear만 쓰면 상황에 따라 hit testing이 기대처럼 동작하지 않을 수 있어
+            // 거의 보이지 않는 opacity를 가진 색으로 터치 가능한 Shape를 만듭니다.
+            .fill(Color.mint.opacity(0.001))
+            // 실제 보이는 캡은 stroke의 lineCap이지만, 손가락 터치를 위해 더 큰 원을 사용합니다.
+            .frame(width: sleepRangeHandleHitSize, height: sleepRangeHandleHitSize)
+            // 프레임 전체 사각형이 아니라 원형 영역만 터치 영역으로 사용합니다.
+            .contentShape(Circle())
+            // 계산된 캡 좌표에 투명 핸들을 올립니다.
+            .position(x: point.x, y: point.y)
+            .gesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .named("sleepRangeDial"))
+                    .onChanged { value in
+                        // value.location은 sleepRangeDial 좌표계 기준입니다.
+                        // 부모 화면 좌표가 아니라 다이얼 내부 좌표라서 progress 계산에 바로 사용할 수 있습니다.
+                        onDrag(value.location)
+                    }
+            )
     }
 
     @ViewBuilder
@@ -217,6 +326,46 @@ struct SleepDialogView: View {
         return CGPoint(
             x: tickPoint.x - (outwardVector.dx * offset),
             y: tickPoint.y - (outwardVector.dy * offset)
+        )
+    }
+
+    private func progress(from location: CGPoint, in size: CGFloat) -> Double {
+        // 드래그 좌표를 원 중심 기준 벡터로 바꿉니다.
+        // 예: 사용자가 오른쪽을 누르면 dx는 양수, dy는 0에 가깝습니다.
+        let center = CGPoint(x: size / 2, y: size / 2)
+        let dx = location.x - center.x
+        let dy = location.y - center.y
+
+        // atan2 기준 각도는 3시 방향이 0도라서, 시계 기준 12시가 0이 되도록 90도를 더합니다.
+        // SwiftUI 좌표계는 y가 아래로 증가하므로 atan2(dy, dx)를 그대로 사용하면
+        // 시계 방향으로 progress가 증가하는 형태가 됩니다.
+        var degrees = atan2(dy, dx) * 180 / .pi + 90
+
+        // atan2 결과는 음수 각도가 나올 수 있으므로 0~360도 범위로 보정합니다.
+        if degrees < 0 {
+            degrees += 360
+        }
+
+        // trim과 같은 0~1 사이 progress 값으로 변환합니다.
+        return min(max(degrees / 360, 0), 1)
+    }
+
+    private func sleepRangePoint(progress: Double, size: CGFloat) -> CGPoint {
+        // sleepRangeArcSegment와 같은 원 path 위에 핸들을 올려야
+        // 실제 보이는 라운드 캡 위치와 드래그 가능한 위치가 일치합니다.
+        // sleepRangeArcSegment에서 사용한 inset 계산을 여기서도 동일하게 사용합니다.
+        let inset = sleepRangeStrokeGap + (sleepRangeStrokeWidth / 2)
+        let radius = (size / 2) - inset
+
+        // progress는 0~1 값이므로 360도를 곱해 각도로 바꿉니다.
+        // -90도 보정은 0 progress가 3시가 아니라 12시 방향에 오게 하기 위함입니다.
+        let radians = (progress * 360 - 90) * .pi / 180
+        let center = size / 2
+
+        // 원 중심에서 해당 각도의 반지름만큼 이동한 실제 핸들 좌표입니다.
+        return CGPoint(
+            x: center + cos(radians) * radius,
+            y: center + sin(radians) * radius
         )
     }
 
