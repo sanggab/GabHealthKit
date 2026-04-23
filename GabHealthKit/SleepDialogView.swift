@@ -67,6 +67,10 @@ struct SleepDialogView: View {
     // 이 값 이하로 좁혀지는 순간부터는 두 핸들이 한 몸처럼 같이 움직입니다.
     private let minimumSleepDurationMinutes = 60
 
+    // 수면 시간이 너무 길어지면 최대 20시간 구간을 유지합니다.
+    // 이 값 이상으로 늘어나는 순간부터도 두 핸들이 한 몸처럼 같이 움직입니다.
+    private let maximumSleepDurationMinutes = 20 * 60
+
     // 좌우 여백입니다. 다이얼 지름은 이 값을 제외한 실제 가용 폭 기준으로 계산합니다.
     private let horizontalPadding: CGFloat = 30
 
@@ -442,41 +446,53 @@ struct SleepDialogView: View {
 
     private func updateBedtime(to proposedBedtimeMinutes: Int) {
         // moon 핸들을 움직였을 때, 기존 기상 시간과의 차이를 계산합니다.
-        // 차이가 1시간보다 크면 취침 시간만 이동합니다.
+        // 차이가 1~20시간 범위 안이면 취침 시간만 독립적으로 이동합니다.
         let proposedDuration = sleepDuration(
             from: proposedBedtimeMinutes,
             to: wakeUpMinutes
         )
 
-        if proposedDuration > minimumSleepDurationMinutes {
-            // 1시간보다 벌어지는 방향으로 드래그하면 다시 각자의 핸들처럼 독립 이동합니다.
-            bedtimeMinutes = proposedBedtimeMinutes
-        } else {
+        if proposedDuration < minimumSleepDurationMinutes {
             // 1시간 이하로 좁혀지는 순간부터는 두 핸들이 한 몸처럼 움직입니다.
             // 사용자가 잡고 있는 moon 핸들은 그대로 따라가고,
             // alarm 핸들은 정확히 1시간 뒤로 같이 밀립니다.
             bedtimeMinutes = proposedBedtimeMinutes
             wakeUpMinutes = normalizedMinutes(proposedBedtimeMinutes + minimumSleepDurationMinutes)
+        } else if proposedDuration > maximumSleepDurationMinutes {
+            // 20시간 이상으로 길어지는 순간부터도 두 핸들이 한 몸처럼 움직입니다.
+            // 사용자가 잡고 있는 moon 핸들은 그대로 따라가고,
+            // alarm 핸들은 정확히 20시간 뒤 위치로 같이 이동합니다.
+            bedtimeMinutes = proposedBedtimeMinutes
+            wakeUpMinutes = normalizedMinutes(proposedBedtimeMinutes + maximumSleepDurationMinutes)
+        } else {
+            // 1~20시간 범위 안에서는 다시 각자의 핸들처럼 독립 이동합니다.
+            bedtimeMinutes = proposedBedtimeMinutes
         }
     }
 
     private func updateWakeUp(to proposedWakeUpMinutes: Int) {
         // alarm 핸들을 움직였을 때, 기존 취침 시간과의 차이를 계산합니다.
-        // 차이가 1시간보다 크면 기상 시간만 이동합니다.
+        // 차이가 1~20시간 범위 안이면 기상 시간만 독립적으로 이동합니다.
         let proposedDuration = sleepDuration(
             from: bedtimeMinutes,
             to: proposedWakeUpMinutes
         )
 
-        if proposedDuration > minimumSleepDurationMinutes {
-            // 1시간보다 벌어지는 방향으로 드래그하면 다시 각자의 핸들처럼 독립 이동합니다.
-            wakeUpMinutes = proposedWakeUpMinutes
-        } else {
+        if proposedDuration < minimumSleepDurationMinutes {
             // 1시간 이하로 좁혀지는 순간부터는 두 핸들이 한 몸처럼 움직입니다.
             // 사용자가 잡고 있는 alarm 핸들은 그대로 따라가고,
             // moon 핸들은 정확히 1시간 전으로 같이 당겨집니다.
             wakeUpMinutes = proposedWakeUpMinutes
             bedtimeMinutes = normalizedMinutes(proposedWakeUpMinutes - minimumSleepDurationMinutes)
+        } else if proposedDuration > maximumSleepDurationMinutes {
+            // 20시간 이상으로 길어지는 순간부터도 두 핸들이 한 몸처럼 움직입니다.
+            // 사용자가 잡고 있는 alarm 핸들은 그대로 따라가고,
+            // moon 핸들은 정확히 20시간 전 위치로 같이 이동합니다.
+            wakeUpMinutes = proposedWakeUpMinutes
+            bedtimeMinutes = normalizedMinutes(proposedWakeUpMinutes - maximumSleepDurationMinutes)
+        } else {
+            // 1~20시간 범위 안에서는 다시 각자의 핸들처럼 독립 이동합니다.
+            wakeUpMinutes = proposedWakeUpMinutes
         }
     }
 
