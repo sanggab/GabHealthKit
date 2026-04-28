@@ -101,9 +101,9 @@ final class HealthKitService {
     // 원하는 날짜 범위의 걸음 수와 활동 칼로리 합계를 함께 가져옵니다.
     // 두 값 모두 누적형(quantity) 데이터라서 HKStatisticsQuery의 cumulativeSum을 사용합니다.
     func fetchStepCount(from startDate: Date, to endDate: Date) async throws -> HealthKitStepCountModel {
-        guard startDate <= endDate else {
-            throw HealthKitServiceError.invalidDateRange
-        }
+//        guard startDate <= endDate else {
+//            throw HealthKitServiceError.invalidDateRange
+//        }
 
         async let stepCount = fetchCumulativeSum(
             for: .stepCount,

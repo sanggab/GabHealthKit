@@ -913,7 +913,7 @@ struct ContentView: View {
             let sleepWindowStart = calendar.date(byAdding: .hour, value: -12, to: dayStart) ?? dayStart
             let sleepWindowEnd = calendar.date(byAdding: .hour, value: 12, to: dayEnd) ?? dayEnd
 
-            async let stepSummary = service.fetchStepCount(from: dayStart, to: dayEnd)
+            async let stepSummary = service.fetchStepCount(from: dayStart, to: dayStart)
             async let previousStepSummary = service.fetchStepCount(from: previousDayStart, to: dayStart)
             async let sleepSummary = service.fetchSleepSummary(from: sleepWindowStart, to: sleepWindowEnd)
             async let sleepAnalysis = service.fetchSleepAnalysis(from: sleepWindowStart, to: sleepWindowEnd)
@@ -922,6 +922,11 @@ struct ContentView: View {
             latestStepSummary = stepModel
             previousDayStepSummary = previousModel
             latestHealthSleepEntry = buildHealthSleepEntry(summary: sleepModel, samples: sleepSamples, fallbackDate: dayStart)
+            
+            print("상갑 logEvent \(#function) stepModel \(stepModel)")
+            print("상갑 logEvent \(#function) previousModel \(previousModel)")
+            print("상갑 logEvent \(#function) sleepModel \(sleepModel)")
+            print("상갑 logEvent \(#function) sleepSamples \(sleepSamples)")
 
             if requestStatus == .unnecessary
                 && stepModel.stepCount == 0

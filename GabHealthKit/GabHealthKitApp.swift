@@ -12,7 +12,8 @@ struct GabHealthKitApp: App {
     var body: some Scene {
         WindowGroup {
             // 앱이 실행되면 기본 화면으로 ContentView를 표시합니다.
-            SleepDialogView()
+//            SleepDialogView()
+            ContentView()
         }
     }
 }
