@@ -42,15 +42,34 @@ struct HealthKitStepCountModel: Sendable {
 
 // 지정한 기간의 수면 요약 정보를 전달하는 모델입니다.
 struct HealthKitSleepSummaryModel: Sendable {
+    // 조회에 사용한 시작 시각입니다.
     let startDate: Date
+
+    // 조회에 사용한 종료 시각입니다.
     let endDate: Date
+
+    // 침대에 있었던 전체 시간입니다.
     let inBedDuration: TimeInterval
+
+    // 실제 수면 상태로 기록된 전체 시간입니다.
     let asleepDuration: TimeInterval
+
+    // 깨어 있었던 시간입니다.
     let awakeDuration: TimeInterval
+
+    // 얕은 수면 또는 코어 수면으로 기록된 시간입니다.
     let asleepCoreDuration: TimeInterval
+
+    // 깊은 수면으로 기록된 시간입니다.
     let asleepDeepDuration: TimeInterval
+
+    // 렘 수면으로 기록된 시간입니다.
     let asleepREMDuration: TimeInterval
+
+    // 구체적인 수면 단계 없이 잠든 상태로만 기록된 시간입니다.
     let asleepUnspecifiedDuration: TimeInterval
+
+    // 조회 범위에서 가져온 원본 HealthKit 수면 샘플 개수입니다.
     let sampleCount: Int
 }
 

@@ -907,13 +907,13 @@ struct ContentView: View {
 
             let calendar = Calendar.current
             let dayStart = calendar.startOfDay(for: selectedDate)
-            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+            let nextDayStart = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
             let previousDayStart = calendar.date(byAdding: .day, value: -1, to: dayStart) ?? dayStart
 
             let sleepWindowStart = calendar.date(byAdding: .hour, value: -12, to: dayStart) ?? dayStart
-            let sleepWindowEnd = calendar.date(byAdding: .hour, value: 12, to: dayEnd) ?? dayEnd
+            let sleepWindowEnd = calendar.date(byAdding: .hour, value: 12, to: nextDayStart) ?? nextDayStart
 
-            async let stepSummary = service.fetchStepCount(from: dayStart, to: dayStart)
+            async let stepSummary = service.fetchStepCount(from: dayStart, to: nextDayStart)
             async let previousStepSummary = service.fetchStepCount(from: previousDayStart, to: dayStart)
             async let sleepSummary = service.fetchSleepSummary(from: sleepWindowStart, to: sleepWindowEnd)
             async let sleepAnalysis = service.fetchSleepAnalysis(from: sleepWindowStart, to: sleepWindowEnd)
